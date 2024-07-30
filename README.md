@@ -1,1 +1,2 @@
-A system for voting created by me 
+Projects I have worked on since i started this journey
+
