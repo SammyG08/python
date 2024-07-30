@@ -13,20 +13,23 @@ def message(msg):
 
 
 class StartVotingSystem:
-    def __init__(self):
+    def __init__(self, today):
         self.startTime = time(hour=8, minute=0, second=0)
-        self.startDay = date(year=2024, month=7, day=30)
+        self.startDay = today
         self.endTime = time(hour=17, minute=0, second=0)
         if date.today() != self.startDay:
             message("Sorry you cannot access this system as the day for voting is not today")
         else:
             currentTime = datetime.now().time()
-            if currentTime != self.startTime:
+            # print(currentTime)
+            if currentTime < self.startTime:
                 message("System is not yet initiated, comeback when it's 8 AM")
             else:
                 while currentTime < self.endTime:
                     self.initialize_system = VotingSystem()
                     currentTime = datetime.now().time()
+                    break
+                    # print(currentTime)
                 self.initialize_system.declare_winner()
 
 
@@ -49,7 +52,6 @@ class VotingSystem:
         self.candidates = []
         for index in range(1,  self.candidatesNumber + 1):
             self.candidates.append({f"Candidate {index}": "none"})
-        # self.voter = Voter()
         self.fetch_candidate(c_ids=self.candidatesNumber + 1)
         self.introductory_message()
 
@@ -91,8 +93,10 @@ class VotingSystem:
             i += 1
         message("Say ready when you're set to cast your vote.")
         response = self.listen_for_ready()
-        if response == "ready":
-            self.cast_vote()
+        while response != "ready":
+            message("Didn't quite get that")
+            response = self.listen_for_ready()
+        self.cast_vote()
 
     def listen_for_ready(self):
         message("listening.....")
@@ -119,6 +123,11 @@ class VotingSystem:
                 vote = vote[7:]
                 digitVersionOfVote = ttd.Text2Digits()
                 vote = digitVersionOfVote.convert(vote)
+                # checking for voters who might mention a number not in the list of candidates
+                if int(vote) > self.candidatesNumber:
+                    message('Your ballot has been rejected')
+                    message('Candidate with that number does not exist')
+                    return
                 oldVoteNum = self.fetch_current_vote_num(vote)
                 self.record_vote(vote)
                 newVoteNum = self.fetch_current_vote_num(vote)
@@ -161,27 +170,18 @@ class VotingSystem:
         stmt = "SELECT Name, Party FROM candidates WHERE Votes = %s"
         self.cursor.execute(stmt, (highestVote,))
         info = self.cursor.fetchall()
-        winner = info[0][0]
-        party = info[0][1]
-        message(f"{winner} of the {party} has won the election.")
+        # checking for the case of a tie
+        if len(info) > 1:
+            message("Candidates,")
+            for candidate in range(0, len(info)):
+                message(f"{info[candidate][0]} of the {info[candidate][1]}, ")
+            message("Have tied in the election")
+        else:
+            winner = info[0][0]
+            party = info[0][1]
+            message(f"{winner} of the {party} has won the election.")
 
 
-# class Voter:
-#     __castedVote = False
-#
-#     def get_casted_vote_value(self):
-#         return self.__castedVote
-#
-#     def set_casted_vote(self, value):
-#         self.__castedVote = value
-#
-
-# voting_system = VotingSystem()
-# voting_system.cast_vote()
-# voting_system.declare_winner()
-
-start = StartVotingSystem()
-ctime = datetime.now().time()
-print(ctime < start.endTime)
+startSystem = StartVotingSystem(date.today())
 
 
