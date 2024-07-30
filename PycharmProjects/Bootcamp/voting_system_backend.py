@@ -13,20 +13,23 @@ def message(msg):
 
 
 class StartVotingSystem:
-    def __init__(self):
+    def __init__(self, today):
         self.startTime = time(hour=8, minute=0, second=0)
-        self.startDay = date(year=2024, month=7, day=30)
+        self.startDay = today
         self.endTime = time(hour=17, minute=0, second=0)
         if date.today() != self.startDay:
             message("Sorry you cannot access this system as the day for voting is not today")
         else:
             currentTime = datetime.now().time()
-            if currentTime != self.startTime:
+            if currentTime < self.startTime:
                 message("System is not yet initiated, comeback when it's 8 AM")
             else:
+                # included for the program to run until a specified time
                 while currentTime < self.endTime:
                     self.initialize_system = VotingSystem()
                     currentTime = datetime.now().time()
+                    # included for testing purposes when the system goes into use, will be removed
+                    break
                 self.initialize_system.declare_winner()
 
 
@@ -49,7 +52,6 @@ class VotingSystem:
         self.candidates = []
         for index in range(1,  self.candidatesNumber + 1):
             self.candidates.append({f"Candidate {index}": "none"})
-        # self.voter = Voter()
         self.fetch_candidate(c_ids=self.candidatesNumber + 1)
         self.introductory_message()
 
@@ -74,7 +76,7 @@ class VotingSystem:
         message("To cast a vote, you say the number corresponding to the candidate you wish to vote for...")
         message("Your vote will then be recorded...")
         message("Note: you can only attempt to vote once...")
-        message("Please listen attentively as the candidates are going to be announced next,")
+        message("Please listen attentively as the candidates are announced,")
         self.announce_candidates()
 
     def announce_candidates(self):
@@ -91,8 +93,11 @@ class VotingSystem:
             i += 1
         message("Say ready when you're set to cast your vote.")
         response = self.listen_for_ready()
-        if response == "ready":
-            self.cast_vote()
+        while response != "ready":
+            message("Didn't quite get that")
+            message("System ready for your request again")
+            response = self.listen_for_ready()
+        self.cast_vote()
 
     def listen_for_ready(self):
         message("listening.....")
@@ -116,19 +121,27 @@ class VotingSystem:
             audio = engine.listen(source)
             try:
                 vote = engine.recognize_google(audio)
+                # sliced because voter will have to respond with number followed by the actual digit and we want to
+                # collect only the digit value
                 vote = vote[7:]
+                # used because the return from the speech recognition would be in a string word form on the number
+                # and we would need to convert to the digit form
                 digitVersionOfVote = ttd.Text2Digits()
-                vote = digitVersionOfVote.convert(vote)
+                # value returned from the text to digits is a string and we need to convert it to int to make some
+                # conditions work
+                vote = int(digitVersionOfVote.convert(vote))
+                # to check for voters who might cast votes for unrecognized candidates
+                if vote > self.candidatesNumber:
+                    message("Your ballot has been rejected")
+                    message("You selected a candidate that does not exist")
+                    return
                 oldVoteNum = self.fetch_current_vote_num(vote)
                 self.record_vote(vote)
                 newVoteNum = self.fetch_current_vote_num(vote)
                 if newVoteNum > oldVoteNum:
-                    # self.voter.set_casted_vote(True)
-                    # voteStatus = self.voter.get_casted_vote_value()
                     message("Vote recorded...")
                     message("Thank you for participating in this election...")
                     message("Enjoy the rest of your day.")
-                    # print(voteStatus)
                 return
             except sr.UnknownValueError:
                 message("Sorry, I did not get that")
@@ -158,30 +171,22 @@ class VotingSystem:
         self.cursor.execute(stmt)
         highestVote = self.cursor.fetchall()
         highestVote = highestVote[0][0]
-        stmt = "SELECT Name, Party FROM candidates WHERE Votes = %s"
+        stmt = "SELECT Name, Party, Votes FROM candidates WHERE Votes = %s"
         self.cursor.execute(stmt, (highestVote,))
         info = self.cursor.fetchall()
-        winner = info[0][0]
-        party = info[0][1]
-        message(f"{winner} of the {party} has won the election.")
+        if len(info) > 1:
+            message("Candidates")
+            for candidate in range(0, len(info)):
+                message(f"{info[candidate][0]} of the {info[candidate][1]}, ")
+            message("Have tied in the election")
+        else:
+            winner = info[0][0]
+            party = info[0][1]
+            votes = info[0][2]
+            message(f"{winner} of the {party} has won the election with {votes} votes.")
 
 
-# class Voter:
-#     __castedVote = False
-#
-#     def get_casted_vote_value(self):
-#         return self.__castedVote
-#
-#     def set_casted_vote(self, value):
-#         self.__castedVote = value
-#
+start = StartVotingSystem(date.today())
 
-# voting_system = VotingSystem()
-# voting_system.cast_vote()
-# voting_system.declare_winner()
-
-start = StartVotingSystem()
-ctime = datetime.now().time()
-print(ctime < start.endTime)
 
 
