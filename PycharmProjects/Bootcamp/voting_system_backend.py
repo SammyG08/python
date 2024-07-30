@@ -21,15 +21,15 @@ class StartVotingSystem:
             message("Sorry you cannot access this system as the day for voting is not today")
         else:
             currentTime = datetime.now().time()
-            # print(currentTime)
             if currentTime < self.startTime:
                 message("System is not yet initiated, comeback when it's 8 AM")
             else:
+                # included for the program to run until a specified time
                 while currentTime < self.endTime:
                     self.initialize_system = VotingSystem()
                     currentTime = datetime.now().time()
+                    # included for testing purposes when the system goes into use, will be removed
                     break
-                    # print(currentTime)
                 self.initialize_system.declare_winner()
 
 
@@ -76,7 +76,7 @@ class VotingSystem:
         message("To cast a vote, you say the number corresponding to the candidate you wish to vote for...")
         message("Your vote will then be recorded...")
         message("Note: you can only attempt to vote once...")
-        message("Please listen attentively as the candidates are going to be announced next,")
+        message("Please listen attentively as the candidates are announced,")
         self.announce_candidates()
 
     def announce_candidates(self):
@@ -95,6 +95,7 @@ class VotingSystem:
         response = self.listen_for_ready()
         while response != "ready":
             message("Didn't quite get that")
+            message("System ready for your request again")
             response = self.listen_for_ready()
         self.cast_vote()
 
@@ -120,24 +121,27 @@ class VotingSystem:
             audio = engine.listen(source)
             try:
                 vote = engine.recognize_google(audio)
+                # sliced because voter will have to respond with number followed by the actual digit and we want to
+                # collect only the digit value
                 vote = vote[7:]
+                # used because the return from the speech recognition would be in a string word form on the number
+                # and we would need to convert to the digit form
                 digitVersionOfVote = ttd.Text2Digits()
-                vote = digitVersionOfVote.convert(vote)
-                # checking for voters who might mention a number not in the list of candidates
-                if int(vote) > self.candidatesNumber:
-                    message('Your ballot has been rejected')
-                    message('Candidate with that number does not exist')
+                # value returned from the text to digits is a string and we need to convert it to int to make some
+                # conditions work
+                vote = int(digitVersionOfVote.convert(vote))
+                # to check for voters who might cast votes for unrecognized candidates
+                if vote > self.candidatesNumber:
+                    message("Your ballot has been rejected")
+                    message("You selected a candidate that does not exist")
                     return
                 oldVoteNum = self.fetch_current_vote_num(vote)
                 self.record_vote(vote)
                 newVoteNum = self.fetch_current_vote_num(vote)
                 if newVoteNum > oldVoteNum:
-                    # self.voter.set_casted_vote(True)
-                    # voteStatus = self.voter.get_casted_vote_value()
                     message("Vote recorded...")
                     message("Thank you for participating in this election...")
                     message("Enjoy the rest of your day.")
-                    # print(voteStatus)
                 return
             except sr.UnknownValueError:
                 message("Sorry, I did not get that")
@@ -167,21 +171,22 @@ class VotingSystem:
         self.cursor.execute(stmt)
         highestVote = self.cursor.fetchall()
         highestVote = highestVote[0][0]
-        stmt = "SELECT Name, Party FROM candidates WHERE Votes = %s"
+        stmt = "SELECT Name, Party, Votes FROM candidates WHERE Votes = %s"
         self.cursor.execute(stmt, (highestVote,))
         info = self.cursor.fetchall()
-        # checking for the case of a tie
         if len(info) > 1:
-            message("Candidates,")
+            message("Candidates")
             for candidate in range(0, len(info)):
                 message(f"{info[candidate][0]} of the {info[candidate][1]}, ")
             message("Have tied in the election")
         else:
             winner = info[0][0]
             party = info[0][1]
-            message(f"{winner} of the {party} has won the election.")
+            votes = info[0][2]
+            message(f"{winner} of the {party} has won the election with {votes} votes.")
 
 
-startSystem = StartVotingSystem(date.today())
+start = StartVotingSystem(date.today())
+
 
 
