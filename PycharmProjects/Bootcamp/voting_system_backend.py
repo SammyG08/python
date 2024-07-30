@@ -1,0 +1,187 @@
+import pyttsx3 as tts
+import speech_recognition as sr
+import mysql.connector as mc
+from text2digits import text2digits as ttd
+from datetime import date, time, datetime
+
+
+def message(msg):
+    engine = tts.init()
+    engine.setProperty('rate', 150)
+    engine.say(msg)
+    engine.runAndWait()
+
+
+class StartVotingSystem:
+    def __init__(self):
+        self.startTime = time(hour=8, minute=0, second=0)
+        self.startDay = date(year=2024, month=7, day=30)
+        self.endTime = time(hour=17, minute=0, second=0)
+        if date.today() != self.startDay:
+            message("Sorry you cannot access this system as the day for voting is not today")
+        else:
+            currentTime = datetime.now().time()
+            if currentTime != self.startTime:
+                message("System is not yet initiated, comeback when it's 8 AM")
+            else:
+                while currentTime < self.endTime:
+                    self.initialize_system = VotingSystem()
+                    currentTime = datetime.now().time()
+                self.initialize_system.declare_winner()
+
+
+class VotingSystem:
+
+    def __init__(self):
+        # connecting to the database and initializing the system
+        serverName = "localhost"
+        dbPass = ""
+        dbUsername = "root"
+        database = "voting_system"
+        self.conn = mc.connect(host=serverName, password=dbPass, user=dbUsername, database=database)
+        self.cursor = self.conn.cursor()
+        # sql to get the number of candidates to take part in the election
+        sql = "SELECT COUNT(Identifier) FROM candidates"
+        self.cursor.execute(sql)
+        number = self.cursor.fetchall()
+        self.candidatesNumber = number[0][0]
+        # candidates would be a variable to hold all the candidates in the election
+        self.candidates = []
+        for index in range(1,  self.candidatesNumber + 1):
+            self.candidates.append({f"Candidate {index}": "none"})
+        # self.voter = Voter()
+        self.fetch_candidate(c_ids=self.candidatesNumber + 1)
+        self.introductory_message()
+
+    def fetch_candidate(self, c_ids):
+        # results variable holds the details of the candidates in the database
+        # needed for the system to be able to mention the current candidates for the voter to make a decision
+        # as to who to vote for
+        results = []
+        for ids in range(1, c_ids + 1):
+            stmt = "SELECT Identifier, Name, Party FROM candidates WHERE Identifier = %s"
+            self.cursor.execute(stmt, (ids,))
+            results.append(self.cursor.fetchall())
+        j = 1
+        for index in range(0, len(results) - 1):
+            self.candidates[index][f"Candidate {j}"] = {"Number": results[index][0][0], "Name": results[index][0][1],
+                                                        "Party": results[index][0][2]}
+            j += 1
+
+    def introductory_message(self):
+        message("Welcome from the voting system.")
+        message("The details of the various candidates would be mentioned,")
+        message("To cast a vote, you say the number corresponding to the candidate you wish to vote for...")
+        message("Your vote will then be recorded...")
+        message("Note: you can only attempt to vote once...")
+        message("Please listen attentively as the candidates are going to be announced next,")
+        self.announce_candidates()
+
+    def announce_candidates(self):
+        engine = tts.init()
+        engine.setProperty("rate", 150)
+        i = 1
+        for candidate in self.candidates:
+            engine.say(f"Candidate Number: {candidate[f'Candidate {i}']['Number']}")
+            engine.say(f"Candidate Name: {candidate[f'Candidate {i}']['Name']}")
+            engine.say(f"Candidate Party: {candidate[f'Candidate {i}']['Party']}")
+            if candidate[f'Candidate {i}']['Number'] != self.candidatesNumber:
+                engine.say("Next...")
+            engine.runAndWait()
+            i += 1
+        message("Say ready when you're set to cast your vote.")
+        response = self.listen_for_ready()
+        if response == "ready":
+            self.cast_vote()
+
+    def listen_for_ready(self):
+        message("listening.....")
+        engine = sr.Recognizer()
+        with sr.Microphone() as source:
+            audio = engine.listen(source)
+            try:
+                response = engine.recognize_google(audio)
+                return response
+            except sr.UnknownValueError:
+                self.listen_for_ready()
+            except sr.RequestError:
+                message("Refreshing the system...")
+                self.introductory_message()
+                self.announce_candidates()
+
+    def cast_vote(self):
+        message("Cast your vote now")
+        engine = sr.Recognizer()
+        with sr.Microphone() as source:
+            audio = engine.listen(source)
+            try:
+                vote = engine.recognize_google(audio)
+                vote = vote[7:]
+                digitVersionOfVote = ttd.Text2Digits()
+                vote = digitVersionOfVote.convert(vote)
+                oldVoteNum = self.fetch_current_vote_num(vote)
+                self.record_vote(vote)
+                newVoteNum = self.fetch_current_vote_num(vote)
+                if newVoteNum > oldVoteNum:
+                    # self.voter.set_casted_vote(True)
+                    # voteStatus = self.voter.get_casted_vote_value()
+                    message("Vote recorded...")
+                    message("Thank you for participating in this election...")
+                    message("Enjoy the rest of your day.")
+                    # print(voteStatus)
+                return
+            except sr.UnknownValueError:
+                message("Sorry, I did not get that")
+                message("Let's try that again")
+                self.cast_vote()
+            except sr.RequestError:
+                message("Could not request services from google at this moment")
+                message("Re-running the system...")
+                self.introductory_message()
+                self.cast_vote()
+
+    def record_vote(self, number):
+        currentVote = self.fetch_current_vote_num(number)
+        sql = "UPDATE candidates SET Votes = %s WHERE Identifier = %s"
+        self.cursor.execute(sql, (currentVote + 1, number, ))
+        self.conn.commit()
+
+    def fetch_current_vote_num(self, identifier):
+        stmt = "SELECT Votes FROM candidates WHERE Identifier = %s"
+        self.cursor.execute(stmt, (identifier,))
+        currentVote = self.cursor.fetchall()
+        currentVote = currentVote[0][0]
+        return currentVote
+
+    def declare_winner(self):
+        stmt = "SELECT MAX(Votes) FROM candidates"
+        self.cursor.execute(stmt)
+        highestVote = self.cursor.fetchall()
+        highestVote = highestVote[0][0]
+        stmt = "SELECT Name, Party FROM candidates WHERE Votes = %s"
+        self.cursor.execute(stmt, (highestVote,))
+        info = self.cursor.fetchall()
+        winner = info[0][0]
+        party = info[0][1]
+        message(f"{winner} of the {party} has won the election.")
+
+
+# class Voter:
+#     __castedVote = False
+#
+#     def get_casted_vote_value(self):
+#         return self.__castedVote
+#
+#     def set_casted_vote(self, value):
+#         self.__castedVote = value
+#
+
+# voting_system = VotingSystem()
+# voting_system.cast_vote()
+# voting_system.declare_winner()
+
+start = StartVotingSystem()
+ctime = datetime.now().time()
+print(ctime < start.endTime)
+
+
