@@ -1,8 +1,19 @@
+import tkinter
 import pyttsx3 as tts
 import speech_recognition as sr
 import mysql.connector as mc
 from text2digits import text2digits as ttd
 from datetime import date, time, datetime
+from tkinter import *
+
+
+def connect_to_db():
+    conn = mc.connect(host="localhost", password="", user="root", database="voting_system")
+    return conn
+
+
+def initiate():
+    StartVotingSystem(date.today())
 
 
 def message(msg):
@@ -12,13 +23,87 @@ def message(msg):
     engine.runAndWait()
 
 
+def start_program():
+    interface = Interface()
+
+
+class Interface:
+    def __init__(self):
+        self.mainScreen = tkinter.Tk()
+        self.mainScreen.title("Visually Impaired Voting System")
+        self.mainScreen.geometry("1920x1080")
+        self.mainScreen.configure(background="black")
+        mainScreenFrame = Frame(self.mainScreen, width=900, height=500, borderwidth=5, bg="purple")
+        mainScreenFrame.place(relx=0.29, rely=0.2)
+        mainScreenLabel = Label(master=mainScreenFrame, text="Press the button to initiate the system", fg="White",
+                                bg="purple", font=("Times New Roman", 30, "bold"))
+        mainScreenLabel.place(rely=0.2, relx=0.13)
+        mainScreenBtn = Button(master=mainScreenFrame, text="Initiate System", bg="Blue", fg="white", borderwidth=2,
+                               command=initiate, font=("Times New Roman", 30, "bold"))
+        mainScreenBtn.place(relx=0.33, rely=0.4)
+        self.mainScreen.mainloop()
+
+
+class Voter:
+    def __init__(self):
+        self.connection = connect_to_db()
+        self.cursor = self.connection.cursor()
+        self.votersId = ""
+        self.get_voters_id()
+        self.already_voted = False
+
+    def get_voters_id(self):
+        message("Welcome.")
+        message("You're required to provide your voters identification number before you can cast a vote")
+        message("Please mention your voters identification number")
+        message("System listening...")
+        engine = sr.Recognizer()
+        with sr.Microphone() as source:
+            audio = engine.listen(source)
+            try:
+                idNumber = engine.recognize_google(audio)
+                convertedNumber = ttd.Text2Digits()
+                idNumber = convertedNumber.convert(idNumber)
+                self.votersId = idNumber
+                registered = self.register_voters_id_into_database()
+                if registered:
+                    message("You have now been validated and as a result, you can participate in the election")
+                    message("Please be aware that you will be able to vote only once")
+                print(f"Voter's Identification Number: {idNumber}")
+            except sr.UnknownValueError:
+                message("System failed to recognize your voters identification number")
+                message("Please try again")
+                self.get_voters_id()
+            except sr.RequestError:
+                message("System down at the moment")
+                message("Rebooting....")
+                self.get_voters_id()
+
+    def register_voters_id_into_database(self):
+        stmt = "SELECT voters_id FROM voters WHERE voters_id = %s"
+        self.cursor.execute(stmt, (self.votersId,))
+        result = self.cursor.fetchall()
+        if len(result) == 0:
+            stmt = "INSERT INTO voters VALUES(%s)"
+            self.cursor.execute(stmt, (self.votersId,))
+            self.connection.commit()
+            return True
+        else:
+            message("Access denied")
+            message("You are have already casted a vote")
+            self.already_voted = True
+            return False
+
+
 class StartVotingSystem:
     def __init__(self, today):
         self.startTime = time(hour=8, minute=0, second=0)
         self.startDay = today
-        self.endTime = time(hour=17, minute=0, second=0)
+        self.endTime = time(hour=17, minute=30, second=0)
+        self.runVotingSystem = False
         if date.today() != self.startDay:
-            message("Sorry you cannot access this system as the day for voting is not today")
+            message("Sorry the system has not been made accessible on this day")
+            message("Kindly wait to access it on the day specified in the news")
         else:
             currentTime = datetime.now().time()
             if currentTime < self.startTime:
@@ -28,20 +113,28 @@ class StartVotingSystem:
                 while currentTime < self.endTime:
                     self.initialize_system = VotingSystem()
                     currentTime = datetime.now().time()
+                    self.runVotingSystem = True
                     # included for testing purposes when the system goes into use, will be removed
                     break
-                self.initialize_system.declare_winner()
+                if self.runVotingSystem:
+                    message("Election has ended")
+                    self.initialize_system.declare_winner()
+                else:
+                    message("You arrived late to the election.")
+                    message("The election has already taken place")
+                self.connection = connect_to_db()
+                self.cursor = self.connection.cursor()
+                stmt = "DELETE FROM voters "
+                self.cursor.execute(stmt)
+                self.connection.commit()
+        return
 
 
 class VotingSystem:
 
     def __init__(self):
         # connecting to the database and initializing the system
-        serverName = "localhost"
-        dbPass = ""
-        dbUsername = "root"
-        database = "voting_system"
-        self.conn = mc.connect(host=serverName, password=dbPass, user=dbUsername, database=database)
+        self.conn = connect_to_db()
         self.cursor = self.conn.cursor()
         # sql to get the number of candidates to take part in the election
         sql = "SELECT COUNT(Identifier) FROM candidates"
@@ -53,7 +146,10 @@ class VotingSystem:
         for index in range(1,  self.candidatesNumber + 1):
             self.candidates.append({f"Candidate {index}": "none"})
         self.fetch_candidate(c_ids=self.candidatesNumber + 1)
-        self.introductory_message()
+        self.voter = Voter()
+        if self.voter.already_voted:
+            return
+        self.announce_candidates()
 
     def fetch_candidate(self, c_ids):
         # results variable holds the details of the candidates in the database
@@ -70,16 +166,8 @@ class VotingSystem:
                                                         "Party": results[index][0][2]}
             j += 1
 
-    def introductory_message(self):
-        message("Welcome from the voting system.")
-        message("The details of the various candidates would be mentioned,")
-        message("To cast a vote, you say the number corresponding to the candidate you wish to vote for...")
-        message("Your vote will then be recorded...")
-        message("Note: you can only attempt to vote once...")
-        message("Please listen attentively as the candidates are announced,")
-        self.announce_candidates()
-
     def announce_candidates(self):
+        message("The candidates for the election being held are: ")
         engine = tts.init()
         engine.setProperty("rate", 150)
         i = 1
@@ -111,23 +199,24 @@ class VotingSystem:
                 self.listen_for_ready()
             except sr.RequestError:
                 message("Refreshing the system...")
-                self.introductory_message()
                 self.announce_candidates()
 
     def cast_vote(self):
-        message("Cast your vote now")
+        message("Please provide the system with the number corresponding to the candidate you wish to vote for")
+        message("System ready to receive your vote now")
+        message("listening...")
         engine = sr.Recognizer()
         with sr.Microphone() as source:
             audio = engine.listen(source)
             try:
                 vote = engine.recognize_google(audio)
-                # sliced because voter will have to respond with number followed by the actual digit and we want to
+                # sliced because voter will have to respond with number followed by the actual digit, and we want to
                 # collect only the digit value
                 vote = vote[7:]
-                # used because the return from the speech recognition would be in a string word form on the number
+                # used because the return from the speech recognition would be in a string word form on the number,
                 # and we would need to convert to the digit form
                 digitVersionOfVote = ttd.Text2Digits()
-                # value returned from the text to digits is a string and we need to convert it to int to make some
+                # value returned from the text to digits is a string, and we need to convert it to int to make some
                 # conditions work
                 vote = int(digitVersionOfVote.convert(vote))
                 # to check for voters who might cast votes for unrecognized candidates
@@ -142,16 +231,15 @@ class VotingSystem:
                     message("Vote recorded...")
                     message("Thank you for participating in this election...")
                     message("Enjoy the rest of your day.")
-                return
+                    return
             except sr.UnknownValueError:
                 message("Sorry, I did not get that")
                 message("Let's try that again")
                 self.cast_vote()
             except sr.RequestError:
-                message("Could not request services from google at this moment")
-                message("Re-running the system...")
-                self.introductory_message()
-                self.cast_vote()
+                message("System experienced an unexpected downtime")
+                message("Re-booting...")
+                self.announce_candidates()
 
     def record_vote(self, number):
         currentVote = self.fetch_current_vote_num(number)
@@ -186,7 +274,4 @@ class VotingSystem:
             message(f"{winner} of the {party} has won the election with {votes} votes.")
 
 
-start = StartVotingSystem(date.today())
-
-
-
+start_program()
