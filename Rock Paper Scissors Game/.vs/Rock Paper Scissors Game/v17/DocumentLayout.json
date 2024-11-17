@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Programming\\Python\\Rock Paper Scissors Game\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{4C96D267-717B-40B7-A18F-6041D55FA222}|Rock Paper Scissors Game.pyproj|C:\\Programming\\Python\\Rock Paper Scissors Game\\Rock_Paper_Scissors_Game.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{4C96D267-717B-40B7-A18F-6041D55FA222}|Rock Paper Scissors Game.pyproj|solutionrelative:Rock_Paper_Scissors_Game.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Rock_Paper_Scissors_Game.py",
+              "DocumentMoniker": "C:\\Programming\\Python\\Rock Paper Scissors Game\\Rock_Paper_Scissors_Game.py",
+              "RelativeDocumentMoniker": "Rock_Paper_Scissors_Game.py",
+              "ToolTip": "C:\\Programming\\Python\\Rock Paper Scissors Game\\Rock_Paper_Scissors_Game.py",
+              "RelativeToolTip": "Rock_Paper_Scissors_Game.py",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAB8AAAAAAAAA",
+              "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAEVSURBVDhPrZOhboRAEIaHhqQIJAKJQCAQCB4AXR4EiUAgkUhwGCSCF2h4AAwOCQkCiUQgqGgy3Z2Uy3FHL\u002Blxf/Jnl5n8HzsbEL6/PhCelPj\u002BCfALeMo8\u002B8Y2p7QDjONIrusafN\u002BnmiiK4LouVFUFXddBlmWgKAr1uHYATdOgLEvo\u002Bx7SNAXHcSCOYyiKApqmgTzPwbZtgl50fQdcLISGYeC6ruh5Hs7zjEmS7GbfTNlbwDRNuCwLrZIk0RqG4S64\u002BRAQBAGdgh2TamwEHIYBLctCXdcxiiKUZflvALuHyzO3qqrYti31uDiMg3jvDsDD25tvbZom\u002Bbp2B/ivefa1HxIb8dCPtAMIgnDoRzo9wqnfGQDgB6iaAPhrbB0nAAAAAElFTkSuQmCC",
+              "WhenOpened": "2024-02-29T22:05:31.261Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
